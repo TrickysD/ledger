@@ -39,7 +39,7 @@
     min-height:100vh;
     display:flex;
     flex-direction:column;
-    padding-bottom:74px;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
   }
   .num{font-family:'JetBrains Mono',monospace;}
   .display{font-family:'Roboto Slab',serif;}
@@ -508,7 +508,7 @@
     background:var(--navy-light);
     border-top:1px solid var(--line);
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:repeat(4, 1fr);
     z-index:30;
     padding-bottom:env(safe-area-inset-bottom);
   }
@@ -529,7 +529,7 @@
   .view.active{display:block;}
 
   /* dashboard */
-  .dash-wrap{padding:18px 18px 8px;}
+  .dash-wrap{padding:18px 18px 24px;}
   .dash-month-label{
     font-family:'Roboto Slab',serif;
     font-size:15px;
@@ -817,13 +817,23 @@
   .stats-month-figs .in{color:var(--green-light);}
   .stats-month-figs .out{color:var(--rust-light);}
 
-  .app-version-footer{
-    text-align:center;
-    color:var(--slate-dim);
-    font-size:11px;
-    margin-top:24px;
-    padding-bottom:8px;
+  .version-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:13px;
+    color:var(--parchment);
   }
+  .version-row span:first-child{color:var(--slate);}
+  .update-status-msg{
+    font-size:12px;
+    color:var(--slate);
+    margin-top:10px;
+    text-align:center;
+    min-height:16px;
+  }
+  .update-status-msg.has-update{color:var(--gold);}
+  .update-status-msg.error{color:var(--rust-light);}
 </style>
 </head>
 <body>
@@ -976,7 +986,15 @@
       <div id="dataStats" style="margin-top:16px; font-size:12px; color:var(--slate-dim);"></div>
     </div>
 
-    <div class="app-version-footer" id="appVersionFooter"></div>
+    <div class="section-title" style="margin-top:24px;">About</div>
+    <div class="recur-manage" style="margin-top:0;">
+      <div class="version-row">
+        <span>Version</span>
+        <span class="num" id="settingsVersionLabel">1.1</span>
+      </div>
+      <button type="button" class="submit-btn" id="checkUpdateBtn" style="margin-top:12px;">Check for updates</button>
+      <div id="updateStatusMsg" class="update-status-msg"></div>
+    </div>
   </div>
 </div>
 
@@ -2068,8 +2086,56 @@
     renderRecurManage();
     document.getElementById('dataStats').textContent =
       transactions.length + ' transactions, ' + recurring.length + ' recurring item' + (recurring.length === 1 ? '' : 's') + ' stored on this device.';
-    document.getElementById('appVersionFooter').textContent = 'Ledger version ' + APP_VERSION;
+    document.getElementById('settingsVersionLabel').textContent = APP_VERSION;
+    document.getElementById('updateStatusMsg').textContent = '';
+    document.getElementById('updateStatusMsg').className = 'update-status-msg';
   }
+
+  document.getElementById('checkUpdateBtn').addEventListener('click', async ()=>{
+    const msgEl = document.getElementById('updateStatusMsg');
+    const btn = document.getElementById('checkUpdateBtn');
+    msgEl.className = 'update-status-msg';
+    msgEl.textContent = 'Checking...';
+    btn.disabled = true;
+
+    try{
+      const res = await fetch('version.json', { cache: 'no-store' });
+      if(!res.ok) throw new Error('bad response');
+      const data = await res.json();
+      const liveVersion = data.version;
+
+      if(!liveVersion){
+        throw new Error('no version field');
+      }
+
+      if(liveVersion === APP_VERSION){
+        msgEl.textContent = "You're up to date (version " + APP_VERSION + ").";
+      } else {
+        msgEl.className = 'update-status-msg has-update';
+        msgEl.textContent = 'Version ' + liveVersion + ' is available. Tap to reload and update.';
+        btn.textContent = 'Reload and update';
+        btn.disabled = false;
+        // swap the handler to a one-shot reload action instead of re-checking
+        btn.onclick = async ()=>{
+          // clear cached files so the new service worker fetches everything fresh
+          if('caches' in window){
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          }
+          if('serviceWorker' in navigator){
+            const reg = await navigator.serviceWorker.getRegistration();
+            if(reg) await reg.unregister();
+          }
+          window.location.reload(true);
+        };
+        return; // skip the finally re-enable below since the button now does a different job
+      }
+    } catch(err){
+      msgEl.className = 'update-status-msg error';
+      msgEl.textContent = "Couldn't check for updates. Check your connection and try again.";
+    }
+    btn.disabled = false;
+  });
 
   renderCalendar();
   renderDashboard();
