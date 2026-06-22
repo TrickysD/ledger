@@ -172,13 +172,33 @@
   }
   .bar.in{background:var(--green-light);}
   .bar.out{background:var(--rust-light);}
-  .day-dot{
+  .day-paid-dot{
     position:absolute;
     top:4px;right:4px;
-    width:4px;height:4px;
+    width:6px;height:6px;
     border-radius:50%;
-    background:var(--gold);
   }
+  .day-paid-dot.all-paid{background:var(--green-light);}
+  .day-paid-dot.partial-paid{background:var(--gold);}
+  .day-paid-dot.unpaid{background:var(--rust-light);}
+
+  .paid-legend{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    padding:10px 14px 0;
+    font-size:11px;
+    color:var(--slate);
+  }
+  .paid-legend span{display:flex;align-items:center;gap:5px;}
+  .legend-dot{
+    width:6px;height:6px;
+    border-radius:50%;
+    display:inline-block;
+  }
+  .legend-dot.all-paid{background:var(--green-light);}
+  .legend-dot.partial-paid{background:var(--gold);}
+  .legend-dot.unpaid{background:var(--rust-light);}
 
   .fab{
     position:fixed;
@@ -260,12 +280,31 @@
   .txn-row{
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    gap:10px;
     background:rgba(0,0,0,0.04);
     border-radius:10px;
     padding:10px 12px;
+    transition:opacity 0.15s;
   }
-  .txn-left{display:flex;align-items:center;gap:10px;}
+  .txn-row.paid{opacity:0.55;}
+  .paid-check{
+    width:22px;height:22px;
+    border-radius:50%;
+    border:1.5px solid var(--parchment-dim);
+    background:#fff;
+    flex-shrink:0;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:13px;
+    color:var(--green);
+    padding:0;
+  }
+  .paid-check.checked{
+    background:var(--green);
+    border-color:var(--green);
+    color:#fff;
+  }
+  .txn-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0;}
   .txn-tag{
     width:8px;height:8px;
     border-radius:50%;
@@ -274,8 +313,9 @@
   .txn-tag.income{background:var(--green);}
   .txn-tag.expense{background:var(--rust);}
   .txn-name{font-size:14px;font-weight:500;}
+  .txn-row.paid .txn-name{text-decoration:line-through;}
   .txn-cat{font-size:11px;color:var(--slate-dim);}
-  .txn-right{display:flex;align-items:center;gap:10px;}
+  .txn-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
   .txn-amt{
     font-family:'JetBrains Mono',monospace;
     font-size:14px;font-weight:500;
@@ -708,6 +748,12 @@
   <div class="cal-grid" id="calGrid"></div>
 </div>
 
+<div class="paid-legend">
+  <span><i class="legend-dot all-paid"></i>Paid</span>
+  <span><i class="legend-dot partial-paid"></i>Partly paid</span>
+  <span><i class="legend-dot unpaid"></i>Unpaid</span>
+</div>
+
 <div class="insights-link" id="recurLink">Manage recurring items</div>
 <div class="insights-link" id="settingsLink" style="margin-top:8px;">Backup &amp; restore data</div>
 
@@ -923,7 +969,8 @@
               type: r.type,
               name: r.name,
               category: r.category,
-              amount: r.amount
+              amount: r.amount,
+              paid: false
             });
           }
         }
@@ -965,10 +1012,11 @@
     const firstDay = new Date(viewYear, viewMonth, 1).getDay();
     const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
 
-    // find max day total for bar scaling
+    // find max day total for bar scaling, and paid/unpaid status per day (expenses only)
     const monthTxns = getMonthTxns(viewYear, viewMonth);
     let maxDayTotal = 1;
     const dayTotals = {};
+    const dayPaidStatus = {}; // 'all-paid' | 'partial-paid' | 'unpaid'
     monthTxns.forEach(t=>{
       if(!dayTotals[t.date]) dayTotals[t.date] = {in:0, out:0};
       if(t.type === 'income') dayTotals[t.date].in += t.amount;
@@ -976,6 +1024,19 @@
     });
     Object.values(dayTotals).forEach(v=>{
       maxDayTotal = Math.max(maxDayTotal, v.in, v.out);
+    });
+
+    const expenseTxnsByDay = {};
+    monthTxns.forEach(t=>{
+      if(t.type !== 'expense') return;
+      if(!expenseTxnsByDay[t.date]) expenseTxnsByDay[t.date] = [];
+      expenseTxnsByDay[t.date].push(t);
+    });
+    Object.entries(expenseTxnsByDay).forEach(([date, list])=>{
+      const paidCount = list.filter(t => t.paid).length;
+      if(paidCount === 0) dayPaidStatus[date] = 'unpaid';
+      else if(paidCount === list.length) dayPaidStatus[date] = 'all-paid';
+      else dayPaidStatus[date] = 'partial-paid';
     });
 
     for(let i=0; i<firstDay; i++){
@@ -1011,6 +1072,13 @@
       barsEl.appendChild(outBar);
       cell.appendChild(barsEl);
 
+      const status = dayPaidStatus[key];
+      if(status){
+        const dot = document.createElement('div');
+        dot.className = 'day-paid-dot ' + status;
+        cell.appendChild(dot);
+      }
+
       cell.addEventListener('click', () => openSheet(key));
       grid.appendChild(cell);
     }
@@ -1035,8 +1103,9 @@
     } else {
       txns.forEach(t=>{
         const row = document.createElement('div');
-        row.className = 'txn-row';
+        row.className = 'txn-row' + (t.paid ? ' paid' : '');
         row.innerHTML = `
+          <button class="paid-check ${t.paid ? 'checked' : ''}" data-id="${t.id}" aria-label="${t.paid ? 'Mark unpaid' : 'Mark paid'}">${t.paid ? '<i class="ti ti-check" aria-hidden="true"></i>' : ''}</button>
           <div class="txn-left">
             <span class="txn-tag ${t.type}"></span>
             <div>
@@ -1058,6 +1127,19 @@
     txns.forEach(t => t.type === 'income' ? inTotal += t.amount : outTotal += t.amount);
     document.getElementById('sheetTotals').innerHTML =
       `<span class="in">+${fmtMoney(inTotal)}</span><span class="out">-${fmtMoney(outTotal)}</span>`;
+
+    list.querySelectorAll('.paid-check').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const txn = transactions.find(t => t.id === id);
+        if(!txn) return;
+        txn.paid = !txn.paid;
+        save();
+        renderTxnList(key);
+        renderCalendar();
+      });
+    });
 
     list.querySelectorAll('.txn-edit').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
@@ -1341,7 +1423,7 @@
         transactions.push({
           id: 'r_' + recurId + '_' + startDate,
           recurId, date: startDate,
-          type: currentType, name, category: cat, amount: amt
+          type: currentType, name, category: cat, amount: amt, paid: false
         });
       }
       showToast('Added as recurring, starting ' + startDate);
@@ -1349,7 +1431,7 @@
       transactions.push({
         id: 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
         date: selectedDateStr,
-        type: currentType, name, category: cat, amount: amt
+        type: currentType, name, category: cat, amount: amt, paid: false
       });
       showToast('Added');
     }
