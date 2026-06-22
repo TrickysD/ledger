@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1C2530">
+<title>Ledger</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  :root{
+    --navy:#1C2530;
+    --navy-light:#252F3D;
+    --navy-lighter:#2E3A4A;
+    --parchment:#F2EDE3;
+    --parchment-dim:#E4DCC9;
+    --green:#2F6B4F;
+    --green-light:#3F8A67;
+    --rust:#B5552E;
+    --rust-light:#CC6B3E;
+    --gold:#C9A24B;
+    --slate:#8A93A0;
+    --slate-dim:#5C6573;
+    --line:#3A4554;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    background:var(--navy);
+    color:var(--parchment);
+    font-family:'Inter',sans-serif;
+    height:100%;
+    overscroll-behavior-y:none;
+  }
+  body{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    padding-bottom:74px;
+  }
+  .num{font-family:'JetBrains Mono',monospace;}
+  .display{font-family:'Roboto Slab',serif;}
+
+  header{
+    padding:20px 18px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  .brand h1{
+    font-family:'Roboto Slab',serif;
+    font-weight:700;
+    font-size:21px;
+    letter-spacing:0.3px;
+  }
+  .brand .tagline{
+    font-size:11px;
+    color:var(--slate);
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+  }
+
+  .month-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px 4px;
+  }
+  .month-nav button{
+    background:none;border:none;color:var(--parchment);
+    font-size:20px;width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;border-radius:8px;
+  }
+  .month-nav button:active{background:var(--navy-light);}
+  .month-label{
+    font-family:'Roboto Slab',serif;
+    font-size:18px;
+    font-weight:500;
+    letter-spacing:0.2px;
+  }
+
+  .summary-row{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+    padding:8px 18px 18px;
+  }
+  .sum-card{
+    background:var(--navy-light);
+    border-radius:10px;
+    padding:10px 8px;
+    text-align:center;
+    border-bottom:2px solid var(--line);
+  }
+  .sum-card.income{border-bottom-color:var(--green);}
+  .sum-card.expense{border-bottom-color:var(--rust);}
+  .sum-card.net{border-bottom-color:var(--gold);}
+  .sum-label{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--slate);
+    margin-bottom:4px;
+  }
+  .sum-value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    font-weight:500;
+  }
+  .sum-card.income .sum-value{color:var(--green-light);}
+  .sum-card.expense .sum-value{color:var(--rust-light);}
+  .sum-card.net .sum-value{color:var(--gold);}
+
+  .cal-wrap{padding:0 14px;}
+  .weekday-row{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    text-align:center;
+    margin-bottom:4px;
+  }
+  .weekday-row span{
+    font-size:10px;
+    color:var(--slate-dim);
+    letter-spacing:0.5px;
+    padding:4px 0;
+  }
+  .cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:4px;
+  }
+  .day-cell{
+    aspect-ratio:1/1.05;
+    background:var(--navy-light);
+    border-radius:8px;
+    padding:5px 4px 4px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    cursor:pointer;
+    position:relative;
+    border:1px solid transparent;
+  }
+  .day-cell:active{background:var(--navy-lighter);}
+  .day-cell.empty{background:transparent;cursor:default;}
+  .day-cell.today{border-color:var(--gold);}
+  .day-num{
+    font-family:'Roboto Slab',serif;
+    font-size:12px;
+    color:var(--slate);
+    border-bottom:1px solid var(--line);
+    padding-bottom:2px;
+  }
+  .day-cell.today .day-num{color:var(--gold);font-weight:700;}
+  .day-bars{
+    display:flex;
+    align-items:flex-end;
+    gap:2px;
+    height:18px;
+  }
+  .bar{
+    flex:1;
+    border-radius:2px 2px 0 0;
+    min-height:2px;
+  }
+  .bar.in{background:var(--green-light);}
+  .bar.out{background:var(--rust-light);}
+  .day-dot{
+    position:absolute;
+    top:4px;right:4px;
+    width:4px;height:4px;
+    border-radius:50%;
+    background:var(--gold);
+  }
+
+  .fab{
+    position:fixed;
+    bottom:84px;
+    right:calc(50% - 240px + 20px);
+    width:56px;height:56px;
+    border-radius:50%;
+    background:var(--gold);
+    color:var(--navy);
+    border:none;
+    font-size:26px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,0.4);
+    cursor:pointer;
+    z-index:40;
+  }
+  @media (max-width:480px){
+    .fab{right:20px;}
+  }
+  .fab:active{transform:scale(0.94);}
+
+  .sheet-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.55);
+    z-index:50;
+    display:none;
+    align-items:flex-end;
+    justify-content:center;
+  }
+  .sheet-overlay.open{display:flex;}
+  .sheet{
+    background:var(--parchment);
+    color:var(--navy);
+    width:100%;
+    max-width:480px;
+    border-radius:18px 18px 0 0;
+    max-height:88vh;
+    overflow-y:auto;
+    padding:10px 18px 28px;
+    animation:slideUp 0.22s ease-out;
+  }
+  @keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  .sheet-handle{
+    width:36px;height:4px;
+    background:var(--parchment-dim);
+    border-radius:2px;
+    margin:6px auto 14px;
+  }
+  .sheet-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:4px;
+  }
+  .sheet-date{
+    font-family:'Roboto Slab',serif;
+    font-size:18px;
+    font-weight:500;
+  }
+  .sheet-close{
+    background:none;border:none;
+    font-size:20px;color:var(--slate-dim);
+    cursor:pointer;padding:4px;
+  }
+  .sheet-day-totals{
+    display:flex;gap:16px;
+    margin:8px 0 16px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+  }
+  .sheet-day-totals span.in{color:var(--green);}
+  .sheet-day-totals span.out{color:var(--rust);}
+
+  .txn-list{
+    display:flex;flex-direction:column;
+    gap:6px;
+    margin-bottom:18px;
+  }
+  .txn-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:rgba(0,0,0,0.04);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  .txn-left{display:flex;align-items:center;gap:10px;}
+  .txn-tag{
+    width:8px;height:8px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .txn-tag.income{background:var(--green);}
+  .txn-tag.expense{background:var(--rust);}
+  .txn-name{font-size:14px;font-weight:500;}
+  .txn-cat{font-size:11px;color:var(--slate-dim);}
+  .txn-right{display:flex;align-items:center;gap:10px;}
+  .txn-amt{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;font-weight:500;
+  }
+  .txn-amt.income{color:var(--green);}
+  .txn-amt.expense{color:var(--rust);}
+  .txn-edit{
+    background:none;border:none;
+    color:var(--slate-dim);
+    font-size:14px;cursor:pointer;
+    padding:2px 4px;
+  }
+  .txn-del{
+    background:none;border:none;
+    color:var(--slate-dim);
+    font-size:16px;cursor:pointer;
+    padding:2px 4px;
+  }
+  .empty-state{
+    text-align:center;
+    color:var(--slate-dim);
+    font-size:13px;
+    padding:18px 0;
+  }
+
+  .add-form{
+    border-top:1px solid var(--parchment-dim);
+    padding-top:16px;
+  }
+  .seg{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    background:rgba(0,0,0,0.05);
+    border-radius:10px;
+    padding:3px;
+    margin-bottom:12px;
+  }
+  .seg button{
+    border:none;background:none;
+    padding:9px 0;
+    font-size:13px;font-weight:500;
+    border-radius:8px;
+    cursor:pointer;
+    color:var(--slate-dim);
+    font-family:'Inter',sans-serif;
+  }
+  .seg button.active.income{background:var(--green);color:#fff;}
+  .seg button.active.expense{background:var(--rust);color:#fff;}
+
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--slate-dim);
+    margin-bottom:5px;
+  }
+  .field input, .field select{
+    width:100%;
+    background:#fff;
+    border:1px solid var(--parchment-dim);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    color:var(--navy);
+  }
+  .field input.num-input{font-family:'JetBrains Mono',monospace;}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+  .recur-toggle{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 0;
+    margin-bottom:8px;
+  }
+  .recur-toggle span{font-size:14px;font-weight:500;}
+  .switch{
+    width:42px;height:24px;
+    background:var(--parchment-dim);
+    border-radius:12px;
+    position:relative;
+    cursor:pointer;
+    border:none;
+  }
+  .switch.on{background:var(--green);}
+  .switch::after{
+    content:'';
+    position:absolute;
+    top:2px;left:2px;
+    width:20px;height:20px;
+    background:#fff;
+    border-radius:50%;
+    transition:left 0.15s;
+  }
+  .switch.on::after{left:20px;}
+
+  .recur-opts{display:none;}
+  .recur-opts.show{display:block;}
+
+  .submit-btn{
+    width:100%;
+    background:var(--navy);
+    color:var(--parchment);
+    border:none;
+    border-radius:10px;
+    padding:13px;
+    font-size:15px;
+    font-weight:500;
+    margin-top:6px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .submit-btn:active{background:var(--navy-light);}
+
+  .month-list-toggle{
+    text-align:center;
+    padding:6px 0 2px;
+  }
+  .month-list-toggle button{
+    background:none;border:none;
+    color:var(--slate);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+  }
+
+  .recur-manage{
+    margin-top:20px;
+    border-top:1px solid var(--parchment-dim);
+    padding-top:14px;
+  }
+  .recur-manage h3{
+    font-family:'Roboto Slab',serif;
+    font-size:14px;
+    margin-bottom:10px;
+  }
+  .recur-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid rgba(0,0,0,0.06);
+  }
+  .recur-item:last-child{border-bottom:none;}
+  .recur-item-name{font-size:13px;font-weight:500;}
+  .recur-item-sub{font-size:11px;color:var(--slate-dim);}
+  .recur-item-right{display:flex;align-items:center;gap:8px;}
+
+  .toast{
+    position:fixed;
+    bottom:100px;
+    left:50%;
+    transform:translateX(-50%);
+    background:var(--navy-light);
+    color:var(--parchment);
+    padding:10px 18px;
+    border-radius:20px;
+    font-size:13px;
+    z-index:60;
+    opacity:0;
+    transition:opacity 0.2s;
+    pointer-events:none;
+    border:1px solid var(--line);
+  }
+  .toast.show{opacity:1;}
+
+  .insights-link{
+    display:block;
+    text-align:center;
+    margin:6px 18px 0;
+    padding:12px;
+    background:var(--navy-light);
+    border-radius:10px;
+    color:var(--slate);
+    font-size:13px;
+    cursor:pointer;
+    border:1px solid var(--line);
+  }
+
+  /* bottom tab bar */
+  .tabbar{
+    position:fixed;
+    bottom:0;
+    left:0;right:0;
+    max-width:480px;
+    margin:0 auto;
+    background:var(--navy-light);
+    border-top:1px solid var(--line);
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    z-index:30;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tab-btn{
+    background:none;border:none;
+    display:flex;flex-direction:column;
+    align-items:center;gap:3px;
+    padding:10px 0 8px;
+    color:var(--slate);
+    font-size:11px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .tab-btn i{font-size:20px;}
+  .tab-btn.active{color:var(--gold);}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* dashboard */
+  .dash-wrap{padding:18px 18px 8px;}
+  .dash-month-label{
+    font-family:'Roboto Slab',serif;
+    font-size:15px;
+    color:var(--slate);
+    margin-bottom:14px;
+  }
+
+  .progress-card{
+    background:var(--navy-light);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:16px;
+    border:1px solid var(--line);
+  }
+  .progress-card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:10px;
+  }
+  .progress-card-label{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--slate);
+  }
+  .progress-card-pct{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    color:var(--gold);
+  }
+  .progress-bar-track{
+    height:10px;
+    background:var(--navy-lighter);
+    border-radius:6px;
+    overflow:hidden;
+    position:relative;
+  }
+  .progress-bar-fill{
+    height:100%;
+    border-radius:6px;
+    background:var(--rust-light);
+    transition:width 0.3s ease;
+  }
+  .progress-bar-fill.over{background:var(--rust);}
+  .progress-card-figures{
+    display:flex;
+    justify-content:space-between;
+    margin-top:10px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+  }
+  .progress-card-figures .spent{color:var(--rust-light);}
+  .progress-card-figures .income{color:var(--green-light);}
+
+  .net-banner{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 16px;
+    border-radius:12px;
+    margin-bottom:20px;
+    border:1px solid var(--line);
+  }
+  .net-banner.positive{background:rgba(47,107,79,0.18);border-color:var(--green);}
+  .net-banner.negative{background:rgba(181,85,46,0.18);border-color:var(--rust);}
+  .net-banner-label{font-size:12px;color:var(--slate);text-transform:uppercase;letter-spacing:0.5px;}
+  .net-banner-value{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:500;}
+  .net-banner.positive .net-banner-value{color:var(--green-light);}
+  .net-banner.negative .net-banner-value{color:var(--rust-light);}
+
+  .section-title{
+    font-family:'Roboto Slab',serif;
+    font-size:15px;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .section-title .count-badge{
+    font-family:'Inter',sans-serif;
+    font-size:11px;
+    color:var(--slate);
+    font-weight:400;
+  }
+
+  .upcoming-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-bottom:22px;
+  }
+  .upcoming-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--navy-light);
+    border-radius:10px;
+    padding:11px 14px;
+    border:1px solid var(--line);
+  }
+  .upcoming-date{
+    display:flex;flex-direction:column;
+    align-items:center;
+    width:40px;
+    flex-shrink:0;
+    line-height:1.1;
+  }
+  .upcoming-date .day-num-big{
+    font-family:'Roboto Slab',serif;
+    font-size:18px;
+    font-weight:700;
+    color:var(--gold);
+  }
+  .upcoming-date .day-name-sm{
+    font-size:10px;
+    color:var(--slate);
+    text-transform:uppercase;
+  }
+  .upcoming-info{flex:1;min-width:0;}
+  .upcoming-name{font-size:14px;font-weight:500;}
+  .upcoming-meta{font-size:11px;color:var(--slate-dim);}
+  .upcoming-amt{
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    font-weight:500;
+    color:var(--rust-light);
+    flex-shrink:0;
+  }
+  .upcoming-empty{
+    text-align:center;
+    color:var(--slate-dim);
+    font-size:13px;
+    padding:20px 0;
+    background:var(--navy-light);
+    border-radius:10px;
+    border:1px solid var(--line);
+  }
+
+  .breakdown-list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .breakdown-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .breakdown-label{
+    font-size:12px;
+    color:var(--slate);
+    width:90px;
+    flex-shrink:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .breakdown-track{
+    flex:1;
+    height:8px;
+    background:var(--navy-lighter);
+    border-radius:5px;
+    overflow:hidden;
+  }
+  .breakdown-fill{
+    height:100%;
+    background:var(--gold);
+    border-radius:5px;
+  }
+  .breakdown-amt{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--slate);
+    width:58px;
+    text-align:right;
+    flex-shrink:0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Ledger</h1>
+    <span class="tagline">your budget</span>
+  </div>
+</header>
+
+<div class="view active" id="viewCalendar">
+
+<div class="month-nav">
+  <button id="prevMonth" aria-label="Previous month">&#8249;</button>
+  <div class="month-label display" id="monthLabel">June 2026</div>
+  <button id="nextMonth" aria-label="Next month">&#8250;</button>
+</div>
+
+<div class="summary-row">
+  <div class="sum-card income">
+    <div class="sum-label">Income</div>
+    <div class="sum-value num" id="sumIncome">$0</div>
+  </div>
+  <div class="sum-card expense">
+    <div class="sum-label">Expenses</div>
+    <div class="sum-value num" id="sumExpense">$0</div>
+  </div>
+  <div class="sum-card net">
+    <div class="sum-label">Net</div>
+    <div class="sum-value num" id="sumNet">$0</div>
+  </div>
+</div>
+
+<div class="cal-wrap">
+  <div class="weekday-row">
+    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+</div>
+
+<div class="insights-link" id="recurLink">Manage recurring items</div>
+<div class="insights-link" id="settingsLink" style="margin-top:8px;">Backup &amp; restore data</div>
+
+</div>
+
+<div class="view" id="viewDashboard">
+  <div class="dash-wrap">
+    <div class="dash-month-label display" id="dashMonthLabel">June 2026</div>
+
+    <div class="progress-card">
+      <div class="progress-card-top">
+        <span class="progress-card-label">Spent vs income</span>
+        <span class="progress-card-pct" id="dashPct">0%</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="dashProgressFill" style="width:0%"></div>
+      </div>
+      <div class="progress-card-figures">
+        <span class="spent num" id="dashSpentFig">$0 spent</span>
+        <span class="income num" id="dashIncomeFig">$0 income</span>
+      </div>
+    </div>
+
+    <div class="net-banner positive" id="dashNetBanner">
+      <span class="net-banner-label">Net this month</span>
+      <span class="net-banner-value num" id="dashNetValue">$0</span>
+    </div>
+
+    <div class="section-title">
+      <span>Upcoming expenses</span>
+      <span class="count-badge" id="upcomingCount"></span>
+    </div>
+    <div class="upcoming-list" id="upcomingList"></div>
+
+    <div class="section-title">Spending by category</div>
+    <div class="breakdown-list" id="breakdownList"></div>
+  </div>
+</div>
+
+<div class="tabbar">
+  <button class="tab-btn active" id="tabCalendarBtn" data-view="viewCalendar">
+    <i class="ti ti-calendar" aria-hidden="true"></i>
+    <span>Calendar</span>
+  </button>
+  <button class="tab-btn" id="tabDashboardBtn" data-view="viewDashboard">
+    <i class="ti ti-chart-bar" aria-hidden="true"></i>
+    <span>Dashboard</span>
+  </button>
+</div>
+
+<button class="fab" id="fabAdd" aria-label="Add transaction">+</button>
+
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-date display" id="sheetDate">Day</div>
+      <button class="sheet-close" id="sheetClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="sheet-day-totals" id="sheetTotals"></div>
+
+    <div class="txn-list" id="txnList"></div>
+
+    <div class="add-form" id="addForm">
+      <div class="seg" id="typeSeg">
+        <button type="button" class="active expense" data-type="expense">Expense</button>
+        <button type="button" data-type="income">Income</button>
+      </div>
+
+      <div class="field">
+        <label for="txnName">Description</label>
+        <input type="text" id="txnName" placeholder="e.g. Groceries, Paycheck">
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="txnAmt">Amount</label>
+          <input type="number" inputmode="decimal" step="0.01" min="0" class="num-input" id="txnAmt" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label for="txnCat">Category</label>
+          <select id="txnCat">
+            <option value="General">General</option>
+            <option value="Housing">Housing</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Insurance">Insurance</option>
+            <option value="Subscriptions">Subscriptions</option>
+            <option value="Giving">Giving</option>
+            <option value="Savings">Savings</option>
+            <option value="Income">Income</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="recur-toggle">
+        <span>Repeat this</span>
+        <button type="button" class="switch" id="recurSwitch" aria-label="Toggle recurring"></button>
+      </div>
+
+      <div class="recur-opts" id="recurOpts">
+        <div class="field">
+          <label for="recurFreq">Frequency</label>
+          <select id="recurFreq">
+            <option value="monthly">Monthly, same date</option>
+            <option value="weekly">Weekly, same weekday</option>
+            <option value="biweekly">Every 2 weeks</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="recurStart">Starts on</label>
+          <input type="date" id="recurStart">
+        </div>
+      </div>
+
+      <button class="submit-btn" id="submitTxn">Add to day</button>
+      <div id="cancelEditRow" style="display:none; text-align:center; margin-top:10px;">
+        <button type="button" id="cancelEditBtn" style="background:none; border:none; color:var(--slate-dim); font-size:13px; text-decoration:underline; cursor:pointer;">Cancel edit</button>
+      </div>
+    </div>
+
+    <div class="recur-manage" id="recurManagePanel" style="display:none;">
+      <h3>Recurring items</h3>
+      <div id="recurItemsList"></div>
+    </div>
+
+    <div class="recur-manage" id="settingsPanel" style="display:none;">
+      <h3>Backup and restore</h3>
+      <p style="font-size:13px; color:var(--slate-dim); margin-bottom:14px; line-height:1.5;">
+        Everything is stored only on this device. Export a backup file regularly, especially before clearing browser data or switching phones.
+      </p>
+      <button type="button" class="submit-btn" id="exportBtn" style="margin-bottom:10px;">Export backup file</button>
+      <button type="button" class="submit-btn" id="importBtn" style="background:none; color:var(--navy); border:1px solid var(--parchment-dim);">Import backup file</button>
+      <input type="file" id="importFileInput" accept="application/json" style="display:none;">
+      <div id="dataStats" style="margin-top:16px; font-size:12px; color:var(--slate-dim);"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'ledger_transactions_v1';
+  const RECUR_KEY = 'ledger_recurring_v1';
+
+  let transactions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  let recurring = JSON.parse(localStorage.getItem(RECUR_KEY) || '[]');
+
+  let viewYear, viewMonth;
+  const today = new Date();
+  viewYear = today.getFullYear();
+  viewMonth = today.getMonth();
+
+  let selectedDateStr = null;
+  let currentType = 'expense';
+  let editingId = null;
+  let editingScope = null; // 'single' or 'series', only relevant when editing a recurring transaction
+
+  function save(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    localStorage.setItem(RECUR_KEY, JSON.stringify(recurring));
+  }
+
+  function fmtMoney(n){
+    const sign = n < 0 ? '-' : '';
+    return sign + '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function dateKey(y,m,d){
+    return y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  }
+
+  function monthName(m){
+    return ['January','February','March','April','May','June','July','August','September','October','November','December'][m];
+  }
+
+  // expand recurring rules into actual transactions for the given month if not already materialized
+  function materializeRecurring(year, month){
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    recurring.forEach(r=>{
+      const startDate = new Date(r.startDate + 'T00:00:00');
+      const endDate = r.endDate ? new Date(r.endDate + 'T00:00:00') : null;
+      const skipDates = r.skipDates || [];
+      for(let d=1; d<=daysInMonth; d++){
+        const cellDate = new Date(year, month, d);
+        if(cellDate < new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())) continue;
+        if(endDate && cellDate > endDate) continue;
+        let matches = false;
+        if(r.freq === 'monthly'){
+          // clamp the target day to this month's length so a rule set for the 29th/30th/31st
+          // still lands (on the last day) in shorter months instead of silently vanishing
+          const targetDay = Math.min(startDate.getDate(), daysInMonth);
+          matches = d === targetDay;
+        } else if(r.freq === 'weekly'){
+          matches = cellDate.getDay() === startDate.getDay();
+        } else if(r.freq === 'biweekly'){
+          const diffDays = Math.round((cellDate - startDate) / 86400000);
+          matches = diffDays >= 0 && diffDays % 14 === 0;
+        }
+        if(matches){
+          const key = dateKey(year, month, d);
+          if(skipDates.includes(key)) continue;
+          const exists = transactions.some(t => t.recurId === r.id && t.date === key);
+          if(!exists){
+            transactions.push({
+              id: 'r_' + r.id + '_' + key,
+              recurId: r.id,
+              date: key,
+              type: r.type,
+              name: r.name,
+              category: r.category,
+              amount: r.amount
+            });
+          }
+        }
+      }
+    });
+  }
+
+  function getDayTxns(key){
+    return transactions.filter(t => t.date === key);
+  }
+
+  function getMonthTxns(year, month){
+    const prefix = year + '-' + String(month+1).padStart(2,'0');
+    return transactions.filter(t => t.date.startsWith(prefix));
+  }
+
+  function renderSummary(){
+    const txns = getMonthTxns(viewYear, viewMonth);
+    let income = 0, expense = 0;
+    txns.forEach(t => {
+      if(t.type === 'income') income += t.amount;
+      else expense += t.amount;
+    });
+    document.getElementById('sumIncome').textContent = fmtMoney(income);
+    document.getElementById('sumExpense').textContent = fmtMoney(expense);
+    const net = income - expense;
+    const netEl = document.getElementById('sumNet');
+    netEl.textContent = (net < 0 ? '-$' : '$') + Math.abs(net).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function renderCalendar(){
+    materializeRecurring(viewYear, viewMonth);
+    save();
+
+    document.getElementById('monthLabel').textContent = monthName(viewMonth) + ' ' + viewYear;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+
+    const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+    const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+
+    // find max day total for bar scaling
+    const monthTxns = getMonthTxns(viewYear, viewMonth);
+    let maxDayTotal = 1;
+    const dayTotals = {};
+    monthTxns.forEach(t=>{
+      if(!dayTotals[t.date]) dayTotals[t.date] = {in:0, out:0};
+      if(t.type === 'income') dayTotals[t.date].in += t.amount;
+      else dayTotals[t.date].out += t.amount;
+    });
+    Object.values(dayTotals).forEach(v=>{
+      maxDayTotal = Math.max(maxDayTotal, v.in, v.out);
+    });
+
+    for(let i=0; i<firstDay; i++){
+      const empty = document.createElement('div');
+      empty.className = 'day-cell empty';
+      grid.appendChild(empty);
+    }
+
+    for(let d=1; d<=daysInMonth; d++){
+      const key = dateKey(viewYear, viewMonth, d);
+      const cell = document.createElement('div');
+      cell.className = 'day-cell';
+      const isToday = (viewYear === today.getFullYear() && viewMonth === today.getMonth() && d === today.getDate());
+      if(isToday) cell.classList.add('today');
+
+      const numEl = document.createElement('div');
+      numEl.className = 'day-num num';
+      numEl.textContent = d;
+      cell.appendChild(numEl);
+
+      const barsEl = document.createElement('div');
+      barsEl.className = 'day-bars';
+      const totals = dayTotals[key] || {in:0, out:0};
+      const inBar = document.createElement('div');
+      inBar.className = 'bar in';
+      inBar.style.height = totals.in > 0 ? Math.max(15, (totals.in / maxDayTotal) * 100) + '%' : '2px';
+      inBar.style.opacity = totals.in > 0 ? '1' : '0.15';
+      const outBar = document.createElement('div');
+      outBar.className = 'bar out';
+      outBar.style.height = totals.out > 0 ? Math.max(15, (totals.out / maxDayTotal) * 100) + '%' : '2px';
+      outBar.style.opacity = totals.out > 0 ? '1' : '0.15';
+      barsEl.appendChild(inBar);
+      barsEl.appendChild(outBar);
+      cell.appendChild(barsEl);
+
+      cell.addEventListener('click', () => openSheet(key));
+      grid.appendChild(cell);
+    }
+
+    renderSummary();
+  }
+
+  function formatSheetDate(key){
+    const [y,m,d] = key.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    return days[dt.getDay()] + ', ' + monthName(m-1) + ' ' + d;
+  }
+
+  function renderTxnList(key){
+    const list = document.getElementById('txnList');
+    const txns = getDayTxns(key).sort((a,b)=> a.type === b.type ? 0 : (a.type === 'income' ? -1 : 1));
+    list.innerHTML = '';
+
+    if(txns.length === 0){
+      list.innerHTML = '<div class="empty-state">No transactions yet for this day.</div>';
+    } else {
+      txns.forEach(t=>{
+        const row = document.createElement('div');
+        row.className = 'txn-row';
+        row.innerHTML = `
+          <div class="txn-left">
+            <span class="txn-tag ${t.type}"></span>
+            <div>
+              <div class="txn-name">${escapeHtml(t.name)}</div>
+              <div class="txn-cat">${escapeHtml(t.category)}${t.recurId ? ' &middot; recurring' : ''}</div>
+            </div>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amt num ${t.type}">${t.type==='income'?'+':'-'}${fmtMoney(t.amount)}</span>
+            <button class="txn-edit" data-id="${t.id}" aria-label="Edit">&#9998;</button>
+            <button class="txn-del" data-id="${t.id}" aria-label="Delete">&times;</button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    let inTotal = 0, outTotal = 0;
+    txns.forEach(t => t.type === 'income' ? inTotal += t.amount : outTotal += t.amount);
+    document.getElementById('sheetTotals').innerHTML =
+      `<span class="in">+${fmtMoney(inTotal)}</span><span class="out">-${fmtMoney(outTotal)}</span>`;
+
+    list.querySelectorAll('.txn-edit').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const txn = transactions.find(t => t.id === id);
+        if(!txn) return;
+        if(txn.recurId){
+          openEditChoice(txn, key);
+        } else {
+          loadTxnIntoForm(txn, 'single');
+        }
+      });
+    });
+
+    list.querySelectorAll('.txn-del').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const txn = transactions.find(t => t.id === id);
+        if(txn && txn.recurId){
+          openDeleteChoice(txn, key);
+        } else {
+          transactions = transactions.filter(t => t.id !== id);
+          save();
+          renderTxnList(key);
+          renderCalendar();
+          showToast('Deleted');
+        }
+      });
+    });
+  }
+
+  // small action sheet for choosing how to delete a recurring occurrence
+  function openEditChoice(txn, dayKey){
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay open';
+    overlay.style.zIndex = '70';
+    overlay.innerHTML = `
+      <div class="sheet" style="padding:14px 18px 24px;">
+        <div class="sheet-handle"></div>
+        <div style="font-family:'Roboto Slab',serif; font-size:16px; margin-bottom:4px;">Edit recurring item</div>
+        <div style="font-size:13px; color:var(--slate-dim); margin-bottom:16px;">${escapeHtml(txn.name)} repeats. What would you like to edit?</div>
+        <button type="button" class="submit-btn" id="editOccOnly" style="margin-bottom:8px;">Just this occurrence</button>
+        <button type="button" class="submit-btn" id="editSeries" style="margin-bottom:8px;">The whole series, going forward</button>
+        <button type="button" class="submit-btn" id="editCancel" style="background:none; color:var(--navy); border:1px solid var(--parchment-dim);">Cancel</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close(){ overlay.remove(); }
+    overlay.querySelector('#editCancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+
+    overlay.querySelector('#editOccOnly').addEventListener('click', ()=>{
+      loadTxnIntoForm(txn, 'single');
+      close();
+    });
+    overlay.querySelector('#editSeries').addEventListener('click', ()=>{
+      loadTxnIntoForm(txn, 'series');
+      close();
+    });
+  }
+
+  function loadTxnIntoForm(txn, scope){
+    editingId = txn.id;
+    editingScope = scope;
+
+    document.getElementById('txnName').value = txn.name;
+    document.getElementById('txnAmt').value = txn.amount;
+    document.getElementById('txnCat').value = txn.category;
+    setType(txn.type);
+
+    const recurSwitch = document.getElementById('recurSwitch');
+    if(scope === 'series'){
+      const rule = recurring.find(r => r.id === txn.recurId);
+      recurSwitch.classList.add('on');
+      document.getElementById('recurOpts').classList.add('show');
+      if(rule){
+        document.getElementById('recurFreq').value = rule.freq;
+        document.getElementById('recurStart').value = rule.startDate;
+      }
+      // frequency/start date apply to the whole series; disabling start-date edits here keeps
+      // history intact, since changing the anchor date would shift which past days matched
+      document.getElementById('recurStart').disabled = true;
+    } else {
+      recurSwitch.classList.remove('on');
+      document.getElementById('recurOpts').classList.remove('show');
+      document.getElementById('recurStart').disabled = false;
+    }
+
+    document.getElementById('submitTxn').textContent = 'Save changes';
+    document.getElementById('cancelEditRow').style.display = 'block';
+    document.getElementById('txnName').focus();
+  }
+
+  document.getElementById('cancelEditBtn').addEventListener('click', ()=>{
+    resetForm();
+  });
+
+  function openDeleteChoice(txn, dayKey){
+    const overlay = document.createElement('div');
+    overlay.className = 'sheet-overlay open';
+    overlay.style.zIndex = '70';
+    overlay.innerHTML = `
+      <div class="sheet" style="padding:14px 18px 24px;">
+        <div class="sheet-handle"></div>
+        <div style="font-family:'Roboto Slab',serif; font-size:16px; margin-bottom:4px;">Delete recurring item</div>
+        <div style="font-size:13px; color:var(--slate-dim); margin-bottom:16px;">${escapeHtml(txn.name)} repeats. What would you like to remove?</div>
+        <button type="button" class="submit-btn" id="delOccOnly" style="margin-bottom:8px;">Just this month</button>
+        <button type="button" class="submit-btn" id="delSeries" style="background:var(--rust); margin-bottom:8px;">This and all future occurrences</button>
+        <button type="button" class="submit-btn" id="delCancel" style="background:none; color:var(--navy); border:1px solid var(--parchment-dim);">Cancel</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close(){ overlay.remove(); }
+
+    overlay.querySelector('#delCancel').addEventListener('click', close);
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+
+    overlay.querySelector('#delOccOnly').addEventListener('click', ()=>{
+      const rule = recurring.find(r => r.id === txn.recurId);
+      if(rule){
+        rule.skipDates = rule.skipDates || [];
+        if(!rule.skipDates.includes(dayKey)) rule.skipDates.push(dayKey);
+      }
+      transactions = transactions.filter(t => t.id !== txn.id);
+      save();
+      renderTxnList(dayKey);
+      renderCalendar();
+      showToast('Removed for this month only');
+      close();
+    });
+
+    overlay.querySelector('#delSeries').addEventListener('click', ()=>{
+      const rule = recurring.find(r => r.id === txn.recurId);
+      if(rule){
+        if(rule.startDate === dayKey){
+          // deleting the very first occurrence: nothing to preserve, remove the rule entirely
+          recurring = recurring.filter(r => r.id !== rule.id);
+          transactions = transactions.filter(t => t.recurId !== rule.id);
+        } else {
+          // stop generating from the day before this occurrence forward; keep history before it
+          const d = new Date(dayKey + 'T00:00:00');
+          d.setDate(d.getDate() - 1);
+          rule.endDate = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+          // also strip this and any later already-materialized occurrences of this rule
+          transactions = transactions.filter(t => !(t.recurId === rule.id && t.date >= dayKey));
+        }
+      }
+      save();
+      renderTxnList(dayKey);
+      renderCalendar();
+      showToast('Stopped this recurring item going forward');
+      close();
+    });
+  }
+
+  function escapeHtml(s){
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function openSheet(key){
+    selectedDateStr = key;
+    document.getElementById('sheetDate').textContent = formatSheetDate(key);
+    document.getElementById('recurManagePanel').style.display = 'none';
+    document.getElementById('settingsPanel').style.display = 'none';
+    document.getElementById('addForm').style.display = 'block';
+    renderTxnList(key);
+    resetForm();
+    document.getElementById('sheetOverlay').classList.add('open');
+  }
+
+  function closeSheet(){
+    document.getElementById('sheetOverlay').classList.remove('open');
+  }
+
+  function resetForm(){
+    document.getElementById('txnName').value = '';
+    document.getElementById('txnAmt').value = '';
+    document.getElementById('txnCat').value = 'General';
+    document.getElementById('recurSwitch').classList.remove('on');
+    document.getElementById('recurOpts').classList.remove('show');
+    document.getElementById('recurStart').value = selectedDateStr;
+    document.getElementById('recurStart').disabled = false;
+    document.getElementById('submitTxn').textContent = 'Add to day';
+    document.getElementById('cancelEditRow').style.display = 'none';
+    editingId = null;
+    editingScope = null;
+    setType('expense');
+  }
+
+  function setType(type){
+    currentType = type;
+    document.querySelectorAll('#typeSeg button').forEach(b=>{
+      b.classList.toggle('active', b.getAttribute('data-type') === type);
+    });
+  }
+
+  document.getElementById('typeSeg').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    setType(btn.getAttribute('data-type'));
+  });
+
+  document.getElementById('recurSwitch').addEventListener('click', ()=>{
+    const sw = document.getElementById('recurSwitch');
+    sw.classList.toggle('on');
+    document.getElementById('recurOpts').classList.toggle('show', sw.classList.contains('on'));
+  });
+
+  document.getElementById('submitTxn').addEventListener('click', ()=>{
+    const name = document.getElementById('txnName').value.trim();
+    const amt = parseFloat(document.getElementById('txnAmt').value);
+    const cat = document.getElementById('txnCat').value;
+    const isRecur = document.getElementById('recurSwitch').classList.contains('on');
+
+    if(!name){ showToast('Add a description'); return; }
+    if(!amt || amt <= 0){ showToast('Enter an amount'); return; }
+
+    if(editingId){
+      const txn = transactions.find(t => t.id === editingId);
+      if(!txn){ resetForm(); return; }
+
+      if(editingScope === 'series' && txn.recurId){
+        // update the rule itself, then refresh every future materialized occurrence to match.
+        // past occurrences are left as-is since they reflect what actually happened.
+        const rule = recurring.find(r => r.id === txn.recurId);
+        const freq = document.getElementById('recurFreq').value;
+        if(rule){
+          rule.name = name;
+          rule.amount = amt;
+          rule.category = cat;
+          rule.type = currentType;
+          rule.freq = freq;
+        }
+        const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+        transactions.forEach(t=>{
+          if(t.recurId === txn.recurId && t.date >= todayKey){
+            t.name = name;
+            t.amount = amt;
+            t.category = cat;
+            t.type = currentType;
+          }
+        });
+        showToast('Updated this and future occurrences');
+      } else {
+        // single occurrence: edit just this materialized row, leaving the rule and other
+        // occurrences (past or future) untouched
+        txn.name = name;
+        txn.amount = amt;
+        txn.category = cat;
+        txn.type = currentType;
+        showToast('Updated this occurrence');
+      }
+
+      save();
+      renderTxnList(selectedDateStr);
+      renderCalendar();
+      resetForm();
+      return;
+    }
+
+    if(isRecur){
+      const freq = document.getElementById('recurFreq').value;
+      const startDate = document.getElementById('recurStart').value;
+      if(!startDate){ showToast('Pick a start date'); return; }
+
+      const recurId = 'rec_' + Date.now();
+      recurring.push({
+        id: recurId,
+        name, amount: amt, category: cat, type: currentType,
+        freq, startDate
+      });
+      // only drop an immediate transaction row if the start date is the day currently open;
+      // otherwise renderCalendar()'s materializer will generate it once that month is viewed
+      if(startDate === selectedDateStr){
+        transactions.push({
+          id: 'r_' + recurId + '_' + startDate,
+          recurId, date: startDate,
+          type: currentType, name, category: cat, amount: amt
+        });
+      }
+      showToast('Added as recurring, starting ' + startDate);
+    } else {
+      transactions.push({
+        id: 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+        date: selectedDateStr,
+        type: currentType, name, category: cat, amount: amt
+      });
+      showToast('Added');
+    }
+
+    save();
+    renderTxnList(selectedDateStr);
+    renderCalendar();
+    resetForm();
+  });
+
+  document.getElementById('sheetClose').addEventListener('click', closeSheet);
+  document.getElementById('sheetOverlay').addEventListener('click', (e)=>{
+    if(e.target === e.currentTarget) closeSheet();
+  });
+
+  document.getElementById('fabAdd').addEventListener('click', ()=>{
+    const key = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+    if(viewYear !== today.getFullYear() || viewMonth !== today.getMonth()){
+      openSheet(dateKey(viewYear, viewMonth, 1));
+    } else {
+      openSheet(key);
+    }
+  });
+
+  document.getElementById('prevMonth').addEventListener('click', ()=>{
+    viewMonth--;
+    if(viewMonth < 0){ viewMonth = 11; viewYear--; }
+    renderCalendar();
+  });
+  document.getElementById('nextMonth').addEventListener('click', ()=>{
+    viewMonth++;
+    if(viewMonth > 11){ viewMonth = 0; viewYear++; }
+    renderCalendar();
+  });
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=> t.classList.remove('show'), 1600);
+  }
+
+  // Manage recurring panel
+  document.getElementById('recurLink').addEventListener('click', ()=>{
+    selectedDateStr = dateKey(viewYear, viewMonth, 1);
+    document.getElementById('sheetDate').textContent = 'Recurring items';
+    document.getElementById('sheetTotals').innerHTML = '';
+    document.getElementById('txnList').innerHTML = '';
+    document.getElementById('addForm').style.display = 'none';
+    document.getElementById('recurManagePanel').style.display = 'block';
+    document.getElementById('settingsPanel').style.display = 'none';
+    renderRecurManage();
+    document.getElementById('sheetOverlay').classList.add('open');
+  });
+
+  // Backup and restore panel
+  document.getElementById('settingsLink').addEventListener('click', ()=>{
+    document.getElementById('sheetDate').textContent = 'Backup and restore';
+    document.getElementById('sheetTotals').innerHTML = '';
+    document.getElementById('txnList').innerHTML = '';
+    document.getElementById('addForm').style.display = 'none';
+    document.getElementById('recurManagePanel').style.display = 'none';
+    document.getElementById('settingsPanel').style.display = 'block';
+    document.getElementById('dataStats').textContent =
+      transactions.length + ' transactions, ' + recurring.length + ' recurring item' + (recurring.length === 1 ? '' : 's') + ' stored on this device.';
+    document.getElementById('sheetOverlay').classList.add('open');
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', ()=>{
+    const payload = {
+      app: 'ledger',
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      transactions,
+      recurring
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    a.href = url;
+    a.download = 'ledger-backup-' + stamp + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup file downloaded');
+  });
+
+  document.getElementById('importBtn').addEventListener('click', ()=>{
+    document.getElementById('importFileInput').click();
+  });
+
+  document.getElementById('importFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      let data;
+      try{
+        data = JSON.parse(evt.target.result);
+      }catch(err){
+        showToast('That file is not valid JSON');
+        e.target.value = '';
+        return;
+      }
+      if(!data || !Array.isArray(data.transactions) || !Array.isArray(data.recurring)){
+        showToast('That file does not look like a ledger backup');
+        e.target.value = '';
+        return;
+      }
+      const mode = confirm(
+        'Importing ' + data.transactions.length + ' transactions and ' + data.recurring.length + ' recurring items.\n\n' +
+        'OK = replace everything currently on this device\n' +
+        'Cancel = merge with what is already here'
+      );
+      if(mode){
+        transactions = data.transactions;
+        recurring = data.recurring;
+      } else {
+        const existingIds = new Set(transactions.map(t => t.id));
+        data.transactions.forEach(t => { if(!existingIds.has(t.id)) transactions.push(t); });
+        const existingRecurIds = new Set(recurring.map(r => r.id));
+        data.recurring.forEach(r => { if(!existingRecurIds.has(r.id)) recurring.push(r); });
+      }
+      save();
+      renderCalendar();
+      document.getElementById('dataStats').textContent =
+        transactions.length + ' transactions, ' + recurring.length + ' recurring item' + (recurring.length === 1 ? '' : 's') + ' stored on this device.';
+      showToast(mode ? 'Backup restored' : 'Backup merged in');
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  function renderRecurManage(){
+    const list = document.getElementById('recurItemsList');
+    if(recurring.length === 0){
+      list.innerHTML = '<div class="empty-state">No recurring items set up. Add one from any day using the "Repeat this" toggle.</div>';
+      return;
+    }
+    const freqLabel = {monthly:'Monthly', weekly:'Weekly', biweekly:'Every 2 weeks'};
+    list.innerHTML = '';
+    recurring.forEach(r=>{
+      const row = document.createElement('div');
+      row.className = 'recur-item';
+      row.innerHTML = `
+        <div>
+          <div class="recur-item-name">${escapeHtml(r.name)}</div>
+          <div class="recur-item-sub">${freqLabel[r.freq]} &middot; ${r.type==='income'?'+':'-'}${fmtMoney(r.amount)} &middot; ${r.category}</div>
+        </div>
+        <div class="recur-item-right">
+          <button class="txn-del" data-recurid="${r.id}" aria-label="Delete recurring item">&times;</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+    list.querySelectorAll('.txn-del').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-recurid');
+        if(confirm('Stop this recurring item? Past occurrences already on the calendar will stay, but it will never generate again until you add it once more.')){
+          const rule = recurring.find(r => r.id === id);
+          if(rule){
+            const todayKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+            if(rule.startDate >= todayKey){
+              // hasn't really started yet relative to today, nothing to preserve
+              recurring = recurring.filter(r => r.id !== id);
+              transactions = transactions.filter(t => t.recurId !== id);
+            } else {
+              const d = new Date(today);
+              d.setDate(d.getDate() - 1);
+              rule.endDate = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+              transactions = transactions.filter(t => !(t.recurId === id && t.date >= todayKey));
+            }
+          }
+          save();
+          renderRecurManage();
+          renderCalendar();
+          showToast('Recurring item stopped');
+        }
+      });
+    });
+  }
+
+  // register service worker for PWA install/offline
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+
+  // ---- Tab switching ----
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const targetView = btn.getAttribute('data-view');
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === targetView));
+      tabBtns.forEach(b => b.classList.toggle('active', b === btn));
+      if(targetView === 'viewDashboard'){
+        renderDashboard();
+      }
+    });
+  });
+
+  // ---- Dashboard ----
+  // Returns the next occurrence date (Date object) of a recurring rule on or after `fromDate`
+  function nextOccurrence(rule, fromDate){
+    const start = new Date(rule.startDate + 'T00:00:00');
+    let candidate = new Date(fromDate);
+    candidate.setHours(0,0,0,0);
+    // walk forward day by day up to 60 days out, cheap and simple given typical monthly/weekly/biweekly rules
+    for(let i=0; i<60; i++){
+      if(candidate >= start){
+        let matches = false;
+        if(rule.freq === 'monthly'){
+          const daysInCandidateMonth = new Date(candidate.getFullYear(), candidate.getMonth()+1, 0).getDate();
+          const targetDay = Math.min(start.getDate(), daysInCandidateMonth);
+          matches = candidate.getDate() === targetDay;
+        } else if(rule.freq === 'weekly'){
+          matches = candidate.getDay() === start.getDay();
+        } else if(rule.freq === 'biweekly'){
+          const diffDays = Math.round((candidate - start) / 86400000);
+          matches = diffDays >= 0 && diffDays % 14 === 0;
+        }
+        if(matches) return new Date(candidate);
+      }
+      candidate.setDate(candidate.getDate() + 1);
+    }
+    return null;
+  }
+
+  function getUpcomingExpenses(limit){
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const items = [];
+
+    // one-off and already-materialized transactions in the future (today onward), expenses only
+    transactions.forEach(t=>{
+      if(t.type !== 'expense') return;
+      const d = new Date(t.date + 'T00:00:00');
+      if(d >= now){
+        items.push({date: d, name: t.name, category: t.category, amount: t.amount, recurring: !!t.recurId});
+      }
+    });
+
+    // recurring rules: find their next occurrence even if not yet materialized onto the calendar
+    recurring.forEach(r=>{
+      if(r.type !== 'expense') return;
+      const nd = nextOccurrence(r, now);
+      if(nd){
+        const key = dateKey(nd.getFullYear(), nd.getMonth(), nd.getDate());
+        const alreadyListed = items.some(it =>
+          it.recurring && dateKey(it.date.getFullYear(), it.date.getMonth(), it.date.getDate()) === key && it.name === r.name
+        );
+        if(!alreadyListed){
+          items.push({date: nd, name: r.name, category: r.category, amount: r.amount, recurring: true});
+        }
+      }
+    });
+
+    items.sort((a,b) => a.date - b.date);
+    // de-duplicate same name+date pairs that might slip through
+    const seen = new Set();
+    const deduped = items.filter(it=>{
+      const k = it.name + '|' + dateKey(it.date.getFullYear(), it.date.getMonth(), it.date.getDate());
+      if(seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    return deduped.slice(0, limit);
+  }
+
+  function renderDashboard(){
+    document.getElementById('dashMonthLabel').textContent = monthName(viewMonth) + ' ' + viewYear;
+
+    const txns = getMonthTxns(viewYear, viewMonth);
+    let income = 0, expense = 0;
+    const byCategory = {};
+    txns.forEach(t=>{
+      if(t.type === 'income'){
+        income += t.amount;
+      } else {
+        expense += t.amount;
+        byCategory[t.category] = (byCategory[t.category] || 0) + t.amount;
+      }
+    });
+
+    const pct = income > 0 ? Math.round((expense / income) * 100) : (expense > 0 ? 100 : 0);
+    document.getElementById('dashPct').textContent = pct + '%';
+    const fill = document.getElementById('dashProgressFill');
+    fill.style.width = Math.min(pct, 100) + '%';
+    fill.classList.toggle('over', pct > 100);
+    document.getElementById('dashSpentFig').textContent = fmtMoney(expense) + ' spent';
+    document.getElementById('dashIncomeFig').textContent = fmtMoney(income) + ' income';
+
+    const net = income - expense;
+    const banner = document.getElementById('dashNetBanner');
+    banner.classList.toggle('positive', net >= 0);
+    banner.classList.toggle('negative', net < 0);
+    document.getElementById('dashNetValue').textContent = (net < 0 ? '-' : '') + fmtMoney(Math.abs(net));
+
+    // upcoming expenses (next 3)
+    const upcoming = getUpcomingExpenses(3);
+    const upList = document.getElementById('upcomingList');
+    document.getElementById('upcomingCount').textContent = upcoming.length > 0 ? ('next ' + upcoming.length) : '';
+    upList.innerHTML = '';
+    if(upcoming.length === 0){
+      upList.innerHTML = '<div class="upcoming-empty">Nothing upcoming. Add expenses from the calendar to see them here.</div>';
+    } else {
+      const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      upcoming.forEach(item=>{
+        const row = document.createElement('div');
+        row.className = 'upcoming-row';
+        row.innerHTML = `
+          <div class="upcoming-date">
+            <span class="day-num-big num">${item.date.getDate()}</span>
+            <span class="day-name-sm">${dayNames[item.date.getDay()]}</span>
+          </div>
+          <div class="upcoming-info">
+            <div class="upcoming-name">${escapeHtml(item.name)}</div>
+            <div class="upcoming-meta">${escapeHtml(item.category)}${item.recurring ? ' &middot; recurring' : ''}</div>
+          </div>
+          <span class="upcoming-amt num">-${fmtMoney(item.amount)}</span>
+        `;
+        upList.appendChild(row);
+      });
+    }
+
+    // category breakdown
+    const breakdownList = document.getElementById('breakdownList');
+    breakdownList.innerHTML = '';
+    const cats = Object.entries(byCategory).sort((a,b) => b[1] - a[1]);
+    if(cats.length === 0){
+      breakdownList.innerHTML = '<div class="upcoming-empty">No expenses logged this month yet.</div>';
+    } else {
+      const maxCat = cats[0][1];
+      cats.forEach(([cat, amt])=>{
+        const row = document.createElement('div');
+        row.className = 'breakdown-row';
+        row.innerHTML = `
+          <span class="breakdown-label">${escapeHtml(cat)}</span>
+          <div class="breakdown-track"><div class="breakdown-fill" style="width:${Math.max(4,(amt/maxCat)*100)}%"></div></div>
+          <span class="breakdown-amt num">${fmtMoney(amt)}</span>
+        `;
+        breakdownList.appendChild(row);
+      });
+    }
+  }
+
+  renderCalendar();
+})();
+</script>
+</body>
+</html>
