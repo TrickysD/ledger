@@ -834,6 +834,31 @@
   }
   .update-status-msg.has-update{color:var(--gold);}
   .update-status-msg.error{color:var(--rust-light);}
+
+  .add-type-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .add-type-btn{
+    background:rgba(0,0,0,0.04);
+    border:1.5px solid var(--parchment-dim);
+    border-radius:12px;
+    padding:18px 10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    font-weight:500;
+    color:var(--navy);
+  }
+  .add-type-btn i{font-size:26px;}
+  .add-type-btn.expense i{color:var(--rust);}
+  .add-type-btn.income i{color:var(--green);}
+  .add-type-btn:active{background:rgba(0,0,0,0.08);}
 </style>
 </head>
 <body>
@@ -990,7 +1015,7 @@
     <div class="recur-manage" style="margin-top:0;">
       <div class="version-row">
         <span>Version</span>
-        <span class="num" id="settingsVersionLabel">1.2</span>
+        <span class="num" id="settingsVersionLabel">1.1</span>
       </div>
       <button type="button" class="submit-btn" id="checkUpdateBtn" style="margin-top:12px;">Check for updates</button>
       <div id="updateStatusMsg" class="update-status-msg"></div>
@@ -1019,6 +1044,34 @@
 
 <button class="fab" id="fabAdd" aria-label="Add transaction">+</button>
 
+<div class="sheet-overlay" id="addTypeOverlay">
+  <div class="sheet" style="padding:14px 18px 24px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header" style="margin-bottom:14px;">
+      <div class="sheet-date display">Add</div>
+      <button class="sheet-close" id="addTypeClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="add-type-grid">
+      <button type="button" class="add-type-btn expense" data-kind="expense-onetime">
+        <i class="ti ti-receipt" aria-hidden="true"></i>
+        <span>One-time expense</span>
+      </button>
+      <button type="button" class="add-type-btn expense" data-kind="expense-recurring">
+        <i class="ti ti-repeat" aria-hidden="true"></i>
+        <span>Recurring expense</span>
+      </button>
+      <button type="button" class="add-type-btn income" data-kind="income-onetime">
+        <i class="ti ti-cash" aria-hidden="true"></i>
+        <span>One-time income</span>
+      </button>
+      <button type="button" class="add-type-btn income" data-kind="income-recurring">
+        <i class="ti ti-repeat" aria-hidden="true"></i>
+        <span>Recurring income</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 
 <div class="sheet-overlay" id="sheetOverlay">
   <div class="sheet" id="sheet">
@@ -1029,14 +1082,23 @@
     </div>
     <div class="sheet-day-totals" id="sheetTotals"></div>
 
-    <div class="txn-list" id="txnList"></div>
+    <div class="section-title" style="margin-top:4px;">Recurring due today</div>
+    <div class="txn-list" id="recurDueList" style="margin-bottom:18px;"></div>
+
+    <div class="section-title">Paid purchases logged</div>
+    <div class="txn-list" id="paidPurchasesList"></div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="addEditOverlay">
+  <div class="sheet" id="addEditSheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-date display" id="addEditTitle">Add</div>
+      <button class="sheet-close" id="addEditClose" aria-label="Close">&times;</button>
+    </div>
 
     <div class="add-form" id="addForm">
-      <div class="seg" id="typeSeg">
-        <button type="button" class="active expense" data-type="expense">Expense</button>
-        <button type="button" data-type="income">Income</button>
-      </div>
-
       <div class="field">
         <label for="txnName">Description</label>
         <input type="text" id="txnName" placeholder="e.g. Groceries, Paycheck">
@@ -1065,9 +1127,9 @@
         </div>
       </div>
 
-      <div class="recur-toggle">
-        <span>Repeat this</span>
-        <button type="button" class="switch" id="recurSwitch" aria-label="Toggle recurring"></button>
+      <div class="field" id="onetimeDateField">
+        <label for="txnDate">Date</label>
+        <input type="date" id="txnDate">
       </div>
 
       <div class="recur-opts" id="recurOpts">
@@ -1085,7 +1147,7 @@
         </div>
       </div>
 
-      <button class="submit-btn" id="submitTxn">Add to day</button>
+      <button class="submit-btn" id="submitTxn">Add</button>
       <div id="cancelEditRow" style="display:none; text-align:center; margin-top:10px;">
         <button type="button" id="cancelEditBtn" style="background:none; border:none; color:var(--slate-dim); font-size:13px; text-decoration:underline; cursor:pointer;">Cancel edit</button>
       </div>
@@ -1097,7 +1159,7 @@
 
 <script>
 (function(){
-  const APP_VERSION = '1.2';
+  const APP_VERSION = '1.3';
   const STORAGE_KEY = 'ledger_transactions_v1';
   const RECUR_KEY = 'ledger_recurring_v1';
 
@@ -1111,6 +1173,7 @@
 
   let selectedDateStr = null;
   let currentType = 'expense';
+  let currentlyRecurring = false; // fixed by which FAB option was tapped, not user-toggleable
   let editingId = null;
   let editingScope = null; // 'single' or 'series', only relevant when editing a recurring transaction
 
@@ -1291,15 +1354,17 @@
     return days[dt.getDay()] + ', ' + monthName(m-1) + ' ' + d;
   }
 
-  function renderTxnList(key){
-    const list = document.getElementById('txnList');
-    const txns = getDayTxns(key).sort((a,b)=> a.type === b.type ? 0 : (a.type === 'income' ? -1 : 1));
-    list.innerHTML = '';
+  function renderDaySheet(key){
+    const allTxns = getDayTxns(key);
+    const recurDue = allTxns.filter(t => t.recurId).sort((a,b)=> a.type === b.type ? 0 : (a.type === 'income' ? -1 : 1));
+    const paidPurchases = allTxns.filter(t => !t.recurId).sort((a,b)=> a.type === b.type ? 0 : (a.type === 'income' ? -1 : 1));
 
-    if(txns.length === 0){
-      list.innerHTML = '<div class="empty-state">No transactions yet for this day.</div>';
+    const recurList = document.getElementById('recurDueList');
+    recurList.innerHTML = '';
+    if(recurDue.length === 0){
+      recurList.innerHTML = '<div class="empty-state on-dark">Nothing recurring due this day.</div>';
     } else {
-      txns.forEach(t=>{
+      recurDue.forEach(t=>{
         const row = document.createElement('div');
         row.className = 'txn-row' + (t.paid ? ' paid' : '');
         row.innerHTML = `
@@ -1308,7 +1373,7 @@
             <span class="txn-tag ${t.type}"></span>
             <div>
               <div class="txn-name">${escapeHtml(t.name)}</div>
-              <div class="txn-cat">${escapeHtml(t.category)}${t.recurId ? ' &middot; recurring' : ''}</div>
+              <div class="txn-cat">${escapeHtml(t.category)} &middot; recurring</div>
             </div>
           </div>
           <div class="txn-right">
@@ -1317,16 +1382,42 @@
             <button class="txn-del" data-id="${t.id}" aria-label="Delete">&times;</button>
           </div>
         `;
-        list.appendChild(row);
+        recurList.appendChild(row);
+      });
+    }
+
+    const purchasesList = document.getElementById('paidPurchasesList');
+    purchasesList.innerHTML = '';
+    if(paidPurchases.length === 0){
+      purchasesList.innerHTML = '<div class="empty-state on-dark">No purchases logged for this day.</div>';
+    } else {
+      paidPurchases.forEach(t=>{
+        const row = document.createElement('div');
+        row.className = 'txn-row paid';
+        row.innerHTML = `
+          <div class="txn-left" style="margin-left:0;">
+            <span class="txn-tag ${t.type}"></span>
+            <div>
+              <div class="txn-name">${escapeHtml(t.name)}</div>
+              <div class="txn-cat">${escapeHtml(t.category)}</div>
+            </div>
+          </div>
+          <div class="txn-right">
+            <span class="txn-amt num ${t.type}">${t.type==='income'?'+':'-'}${fmtMoney(t.amount)}</span>
+            <button class="txn-edit" data-id="${t.id}" aria-label="Edit">&#9998;</button>
+            <button class="txn-del" data-id="${t.id}" aria-label="Delete">&times;</button>
+          </div>
+        `;
+        purchasesList.appendChild(row);
       });
     }
 
     let inTotal = 0, outTotal = 0;
-    txns.forEach(t => t.type === 'income' ? inTotal += t.amount : outTotal += t.amount);
+    allTxns.forEach(t => t.type === 'income' ? inTotal += t.amount : outTotal += t.amount);
     document.getElementById('sheetTotals').innerHTML =
       `<span class="in">+${fmtMoney(inTotal)}</span><span class="out">-${fmtMoney(outTotal)}</span>`;
 
-    list.querySelectorAll('.paid-check').forEach(btn=>{
+    document.querySelectorAll('#recurDueList .paid-check').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
@@ -1334,12 +1425,12 @@
         if(!txn) return;
         txn.paid = !txn.paid;
         save();
-        renderTxnList(key);
+        renderDaySheet(key);
         renderCalendar();
       });
     });
 
-    list.querySelectorAll('.txn-edit').forEach(btn=>{
+    document.querySelectorAll('#recurDueList .txn-edit, #paidPurchasesList .txn-edit').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
@@ -1353,7 +1444,7 @@
       });
     });
 
-    list.querySelectorAll('.txn-del').forEach(btn=>{
+    document.querySelectorAll('#recurDueList .txn-del, #paidPurchasesList .txn-del').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
@@ -1363,7 +1454,7 @@
         } else {
           transactions = transactions.filter(t => t.id !== id);
           save();
-          renderTxnList(key);
+          renderDaySheet(key);
           renderCalendar();
           showToast('Deleted');
         }
@@ -1405,17 +1496,15 @@
   function loadTxnIntoForm(txn, scope){
     editingId = txn.id;
     editingScope = scope;
+    selectedDateStr = txn.date;
 
     document.getElementById('txnName').value = txn.name;
     document.getElementById('txnAmt').value = txn.amount;
     document.getElementById('txnCat').value = txn.category;
-    setType(txn.type);
 
-    const recurSwitch = document.getElementById('recurSwitch');
     if(scope === 'series'){
       const rule = recurring.find(r => r.id === txn.recurId);
-      recurSwitch.classList.add('on');
-      document.getElementById('recurOpts').classList.add('show');
+      setAddKind(txn.type, true);
       if(rule){
         document.getElementById('recurFreq').value = rule.freq;
         document.getElementById('recurStart').value = rule.startDate;
@@ -1423,19 +1512,27 @@
       // frequency/start date apply to the whole series; disabling start-date edits here keeps
       // history intact, since changing the anchor date would shift which past days matched
       document.getElementById('recurStart').disabled = true;
+      document.getElementById('addEditTitle').textContent = 'Edit recurring series';
     } else {
-      recurSwitch.classList.remove('on');
-      document.getElementById('recurOpts').classList.remove('show');
-      document.getElementById('recurStart').disabled = false;
+      // editing a single occurrence (recurring or one-time): only name/amount/category change.
+      // hide both the date field and recurring options since the date and recurrence are fixed
+      // for this specific entry and aren't part of what a single-occurrence edit can touch
+      currentType = txn.type;
+      currentlyRecurring = false;
+      document.getElementById('onetimeDateField').style.display = 'none';
+      document.getElementById('recurOpts').style.display = 'none';
+      document.getElementById('addEditTitle').textContent = txn.recurId ? 'Edit this occurrence' : 'Edit';
     }
 
     document.getElementById('submitTxn').textContent = 'Save changes';
     document.getElementById('cancelEditRow').style.display = 'block';
+    document.getElementById('addEditOverlay').classList.add('open');
     document.getElementById('txnName').focus();
   }
 
   document.getElementById('cancelEditBtn').addEventListener('click', ()=>{
     resetForm();
+    closeAddEditSheet();
   });
 
   function openDeleteChoice(txn, dayKey){
@@ -1467,7 +1564,7 @@
       }
       transactions = transactions.filter(t => t.id !== txn.id);
       save();
-      renderTxnList(dayKey);
+      renderDaySheet(dayKey);
       renderCalendar();
       showToast('Removed for this month only');
       close();
@@ -1490,7 +1587,7 @@
         }
       }
       save();
-      renderTxnList(dayKey);
+      renderDaySheet(dayKey);
       renderCalendar();
       showToast('Stopped this recurring item going forward');
       close();
@@ -1506,9 +1603,7 @@
   function openSheet(key){
     selectedDateStr = key;
     document.getElementById('sheetDate').textContent = formatSheetDate(key);
-    document.getElementById('addForm').style.display = 'block';
-    renderTxnList(key);
-    resetForm();
+    renderDaySheet(key);
     document.getElementById('sheetOverlay').classList.add('open');
   }
 
@@ -1516,52 +1611,85 @@
     document.getElementById('sheetOverlay').classList.remove('open');
   }
 
+  function closeAddEditSheet(){
+    document.getElementById('addEditOverlay').classList.remove('open');
+  }
+
+  function closeAddTypeMenu(){
+    document.getElementById('addTypeOverlay').classList.remove('open');
+  }
+
+  // applies the fixed type+recurring combination chosen from the FAB menu (or inferred when editing)
+  function setAddKind(type, isRecurring){
+    currentType = type;
+    currentlyRecurring = isRecurring;
+    document.getElementById('onetimeDateField').style.display = isRecurring ? 'none' : 'block';
+    document.getElementById('recurOpts').style.display = isRecurring ? 'block' : 'none';
+  }
+
   function resetForm(){
     document.getElementById('txnName').value = '';
     document.getElementById('txnAmt').value = '';
     document.getElementById('txnCat').value = 'General';
-    document.getElementById('recurSwitch').classList.remove('on');
-    document.getElementById('recurOpts').classList.remove('show');
-    document.getElementById('recurStart').value = selectedDateStr;
+    document.getElementById('txnDate').value = selectedDateStr || dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+    document.getElementById('recurStart').value = selectedDateStr || dateKey(today.getFullYear(), today.getMonth(), today.getDate());
     document.getElementById('recurStart').disabled = false;
-    document.getElementById('submitTxn').textContent = 'Add to day';
+    document.getElementById('recurFreq').value = 'monthly';
+    document.getElementById('submitTxn').textContent = 'Add';
     document.getElementById('cancelEditRow').style.display = 'none';
     editingId = null;
     editingScope = null;
-    setType('expense');
   }
 
-  function setType(type){
-    currentType = type;
-    document.querySelectorAll('#typeSeg button').forEach(b=>{
-      b.classList.toggle('active', b.getAttribute('data-type') === type);
-    });
-  }
-
-  document.getElementById('typeSeg').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button');
-    if(!btn) return;
-    setType(btn.getAttribute('data-type'));
+  document.getElementById('fabAdd').addEventListener('click', ()=>{
+    document.getElementById('addTypeOverlay').classList.add('open');
   });
 
-  document.getElementById('recurSwitch').addEventListener('click', ()=>{
-    const sw = document.getElementById('recurSwitch');
-    sw.classList.toggle('on');
-    document.getElementById('recurOpts').classList.toggle('show', sw.classList.contains('on'));
+  document.getElementById('addTypeClose').addEventListener('click', closeAddTypeMenu);
+  document.getElementById('addTypeOverlay').addEventListener('click', (e)=>{
+    if(e.target === e.currentTarget) closeAddTypeMenu();
+  });
+
+  document.querySelectorAll('.add-type-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const kind = btn.getAttribute('data-kind');
+      const [type, recurrence] = kind.split('-'); // 'expense'/'income', 'onetime'/'recurring'
+      const isRecurring = recurrence === 'recurring';
+
+      selectedDateStr = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+      resetForm();
+      setAddKind(type, isRecurring);
+
+      const titles = {
+        'expense-onetime': 'One-time expense',
+        'expense-recurring': 'Recurring expense',
+        'income-onetime': 'One-time income',
+        'income-recurring': 'Recurring income'
+      };
+      document.getElementById('addEditTitle').textContent = titles[kind] || 'Add';
+
+      closeAddTypeMenu();
+      document.getElementById('addEditOverlay').classList.add('open');
+      document.getElementById('txnName').focus();
+    });
+  });
+
+  document.getElementById('addEditClose').addEventListener('click', closeAddEditSheet);
+  document.getElementById('addEditOverlay').addEventListener('click', (e)=>{
+    if(e.target === e.currentTarget) closeAddEditSheet();
   });
 
   document.getElementById('submitTxn').addEventListener('click', ()=>{
     const name = document.getElementById('txnName').value.trim();
     const amt = parseFloat(document.getElementById('txnAmt').value);
     const cat = document.getElementById('txnCat').value;
-    const isRecur = document.getElementById('recurSwitch').classList.contains('on');
 
     if(!name){ showToast('Add a description'); return; }
     if(!amt || amt <= 0){ showToast('Enter an amount'); return; }
 
     if(editingId){
       const txn = transactions.find(t => t.id === editingId);
-      if(!txn){ resetForm(); return; }
+      if(!txn){ resetForm(); closeAddEditSheet(); return; }
 
       if(editingScope === 'series' && txn.recurId){
         // update the rule itself, then refresh every future materialized occurrence to match.
@@ -1587,22 +1715,25 @@
         showToast('Updated this and future occurrences');
       } else {
         // single occurrence: edit just this materialized row, leaving the rule and other
-        // occurrences (past or future) untouched
+        // occurrences (past or future) untouched. One-time transactions stay paid:true always.
         txn.name = name;
         txn.amount = amt;
         txn.category = cat;
         txn.type = currentType;
-        showToast('Updated this occurrence');
+        showToast(txn.recurId ? 'Updated this occurrence' : 'Updated');
       }
 
       save();
-      renderTxnList(selectedDateStr);
+      if(document.getElementById('sheetOverlay').classList.contains('open')){
+        renderDaySheet(selectedDateStr);
+      }
       renderCalendar();
       resetForm();
+      closeAddEditSheet();
       return;
     }
 
-    if(isRecur){
+    if(currentlyRecurring){
       const freq = document.getElementById('recurFreq').value;
       const startDate = document.getElementById('recurStart').value;
       if(!startDate){ showToast('Pick a start date'); return; }
@@ -1613,43 +1744,39 @@
         name, amount: amt, category: cat, type: currentType,
         freq, startDate
       });
-      // only drop an immediate transaction row if the start date is the day currently open;
-      // otherwise renderCalendar()'s materializer will generate it once that month is viewed
-      if(startDate === selectedDateStr){
-        transactions.push({
-          id: 'r_' + recurId + '_' + startDate,
-          recurId, date: startDate,
-          type: currentType, name, category: cat, amount: amt, paid: false
-        });
-      }
+      // materialize today's occurrence immediately if the start date is today or earlier in
+      // the currently-viewed month; otherwise renderCalendar()'s materializer picks it up
+      // once that month is viewed
+      transactions.push({
+        id: 'r_' + recurId + '_' + startDate,
+        recurId, date: startDate,
+        type: currentType, name, category: cat, amount: amt, paid: false
+      });
       showToast('Added as recurring, starting ' + startDate);
     } else {
+      const txnDate = document.getElementById('txnDate').value;
+      if(!txnDate){ showToast('Pick a date'); return; }
       transactions.push({
         id: 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-        date: selectedDateStr,
-        type: currentType, name, category: cat, amount: amt, paid: false
+        date: txnDate,
+        type: currentType, name, category: cat, amount: amt,
+        paid: true // one-time entries represent already-completed purchases or income received
       });
       showToast('Added');
     }
 
     save();
-    renderTxnList(selectedDateStr);
+    if(document.getElementById('sheetOverlay').classList.contains('open')){
+      renderDaySheet(selectedDateStr);
+    }
     renderCalendar();
     resetForm();
+    closeAddEditSheet();
   });
 
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
   document.getElementById('sheetOverlay').addEventListener('click', (e)=>{
     if(e.target === e.currentTarget) closeSheet();
-  });
-
-  document.getElementById('fabAdd').addEventListener('click', ()=>{
-    const key = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
-    if(viewYear !== today.getFullYear() || viewMonth !== today.getMonth()){
-      openSheet(dateKey(viewYear, viewMonth, 1));
-    } else {
-      openSheet(key);
-    }
   });
 
   document.getElementById('prevMonth').addEventListener('click', ()=>{
