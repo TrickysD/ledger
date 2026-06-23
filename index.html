@@ -39,7 +39,7 @@
     min-height:100vh;
     display:flex;
     flex-direction:column;
-    padding-bottom:calc(140px + env(safe-area-inset-bottom));
+    padding-bottom:calc(150px + env(safe-area-inset-bottom));
   }
   .num{font-family:'JetBrains Mono',monospace;}
   .display{font-family:'Roboto Slab',serif;}
@@ -202,7 +202,7 @@
 
   .fab{
     position:fixed;
-    bottom:84px;
+    bottom:96px;
     right:calc(50% - 240px + 20px);
     width:56px;height:56px;
     border-radius:50%;
@@ -514,15 +514,14 @@
   }
   .tab-btn{
     background:none;border:none;
-    display:flex;flex-direction:column;
-    align-items:center;gap:3px;
-    padding:10px 0 8px;
+    display:flex;
+    align-items:center;justify-content:center;
+    padding:16px 0;
     color:var(--slate);
-    font-size:11px;
     cursor:pointer;
     font-family:'Inter',sans-serif;
   }
-  .tab-btn i{font-size:20px;}
+  .tab-btn i{font-size:26px;}
   .tab-btn.active{color:var(--gold);}
 
   .view{display:none;}
@@ -745,8 +744,7 @@
   }
 
   /* 4-tab bar needs slightly tighter padding to fit labels comfortably */
-  .tabbar-4 .tab-btn{font-size:10px;}
-  .tabbar-4 .tab-btn i{font-size:18px;}
+  /* tabbar-4 sizing now handled directly in .tab-btn / .tab-btn i above */
 
   /* stats page */
   .stats-period-toggle{
@@ -995,9 +993,9 @@
 
 <div class="view" id="viewSettings">
   <div class="dash-wrap">
-    <div class="section-title">Recurring items</div>
+    <div class="section-title">Recurring</div>
     <div class="recur-manage" style="margin-top:0;">
-      <div id="recurItemsList"></div>
+      <button type="button" class="submit-btn" id="openRecurManageBtn">Manage Recurring Items</button>
     </div>
 
     <div class="section-title" style="margin-top:24px;">Backup and restore</div>
@@ -1023,22 +1021,31 @@
   </div>
 </div>
 
+<div class="sheet-overlay" id="recurManageOverlay">
+  <div class="sheet" style="max-height:92vh;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-date display">Manage Recurring Items</div>
+      <button class="sheet-close" id="recurManageClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="recur-manage" style="margin-top:4px;">
+      <div id="recurItemsList"></div>
+    </div>
+  </div>
+</div>
+
 <div class="tabbar tabbar-4">
-  <button class="tab-btn active" id="tabDashboardBtn" data-view="viewDashboard">
+  <button class="tab-btn active" id="tabDashboardBtn" data-view="viewDashboard" aria-label="Dashboard">
     <i class="ti ti-chart-bar" aria-hidden="true"></i>
-    <span>Dashboard</span>
   </button>
-  <button class="tab-btn" id="tabCalendarBtn" data-view="viewCalendar">
+  <button class="tab-btn" id="tabCalendarBtn" data-view="viewCalendar" aria-label="Calendar">
     <i class="ti ti-calendar" aria-hidden="true"></i>
-    <span>Calendar</span>
   </button>
-  <button class="tab-btn" id="tabStatsBtn" data-view="viewStats">
+  <button class="tab-btn" id="tabStatsBtn" data-view="viewStats" aria-label="Stats">
     <i class="ti ti-chart-line" aria-hidden="true"></i>
-    <span>Stats</span>
   </button>
-  <button class="tab-btn" id="tabSettingsBtn" data-view="viewSettings">
+  <button class="tab-btn" id="tabSettingsBtn" data-view="viewSettings" aria-label="Settings">
     <i class="ti ti-settings" aria-hidden="true"></i>
-    <span>Settings</span>
   </button>
 </div>
 
@@ -1869,7 +1876,7 @@
   function renderRecurManage(){
     const list = document.getElementById('recurItemsList');
     if(recurring.length === 0){
-      list.innerHTML = '<div class="empty-state on-dark">No recurring items set up. Add one from any day using the "Repeat this" toggle.</div>';
+      list.innerHTML = '<div class="empty-state on-dark">No recurring items set up. Add one using the + button and choosing a recurring option.</div>';
       return;
     }
     const freqLabel = {monthly:'Monthly', weekly:'Weekly', biweekly:'Every 2 weeks'};
@@ -2210,13 +2217,23 @@
 
   // ---- Settings ----
   function renderSettings(){
-    renderRecurManage();
     document.getElementById('dataStats').textContent =
       transactions.length + ' transactions, ' + recurring.length + ' recurring item' + (recurring.length === 1 ? '' : 's') + ' stored on this device.';
     document.getElementById('settingsVersionLabel').textContent = APP_VERSION;
     document.getElementById('updateStatusMsg').textContent = '';
     document.getElementById('updateStatusMsg').className = 'update-status-msg';
   }
+
+  document.getElementById('openRecurManageBtn').addEventListener('click', ()=>{
+    renderRecurManage();
+    document.getElementById('recurManageOverlay').classList.add('open');
+  });
+  document.getElementById('recurManageClose').addEventListener('click', ()=>{
+    document.getElementById('recurManageOverlay').classList.remove('open');
+  });
+  document.getElementById('recurManageOverlay').addEventListener('click', (e)=>{
+    if(e.target === e.currentTarget) document.getElementById('recurManageOverlay').classList.remove('open');
+  });
 
   document.getElementById('checkUpdateBtn').addEventListener('click', async ()=>{
     const msgEl = document.getElementById('updateStatusMsg');
